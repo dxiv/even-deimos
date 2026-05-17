@@ -43,10 +43,8 @@ import {
   appendGlassesStream,
   applyStreamEventToGlasses,
   cycleToolStatusOnGlasses,
-  beginHubExitConfirmationFlow,
   getGlassesDisplaySnapshot,
   requestHubExitWithConfirmation,
-  respondHubExitConfirm,
   runDeimosOnBridge,
   setDeimosBridgeCallbacks,
   setGlassesHeader,
@@ -782,7 +780,6 @@ function wireChatUi(): void {
   });
 
   $('dm-hub-exit')?.addEventListener('click', () => {
-    if (bridge && beginHubExitConfirmationFlow()) return;
     requestHubExitWithConfirmation(bridge);
   });
 }
@@ -849,17 +846,7 @@ export async function initDeimosPage(opts: InitOpts): Promise<void> {
   wireLensPreview();
   setLensPreviewHandlers({
     onNavAction: (action) => {
-      if (action === 'Stay') {
-        respondHubExitConfirm(true);
-        setStatus('staying in Deimos');
-        return;
-      }
-      if (action === 'Leave') {
-        respondHubExitConfirm(false);
-        return;
-      }
       if (action === '< Exit') {
-        if (bridge && beginHubExitConfirmationFlow()) return;
         requestHubExitWithConfirmation(bridge);
         return;
       }
@@ -880,7 +867,6 @@ export async function initDeimosPage(opts: InitOpts): Promise<void> {
       }
     },
     onExitLens: () => {
-      if (bridge && beginHubExitConfirmationFlow()) return;
       requestHubExitWithConfirmation(bridge);
     },
   });

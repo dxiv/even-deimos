@@ -30,8 +30,6 @@ const ITEM_PROVIDER = 'Provider';
 const ITEM_CLEAR = 'Clear';
 const ITEM_TOOLS = 'Tools';
 const ITEM_EXIT = '< Exit';
-const ITEM_HUB_EXIT_STAY = 'Stay';
-const ITEM_HUB_EXIT_LEAVE = 'Leave';
 
 const NAV_ROWS: readonly { label: string; action: string }[] = [
   { label: 'Send', action: ITEM_SEND },
@@ -49,7 +47,6 @@ let mainText = 'Ask on phone → read here';
 let statusLine = '';
 let glassesStarted = false;
 let useUpgradeLimit = false;
-let hubExitConfirm = false;
 let textScrollOffset = 0;
 
 let upgradeChain: Promise<void> = Promise.resolve();
@@ -93,11 +90,6 @@ export function scrollGlassesLensText(direction: 'up' | 'down'): void {
   notifyGlassesLens();
 }
 
-export function respondHubExitConfirm(stay: boolean): void {
-  if (stay) cancelHubExitConfirm();
-  else confirmHubExitLeave();
-}
-
 export type GlassesInitResult = { ok: true } | { ok: false; error: string };
 
 export function setDeimosBridgeCallbacks(cb: {
@@ -111,16 +103,9 @@ export function setDeimosBridgeCallbacks(cb: {
 }
 
 export function getGlassesDisplaySnapshot(): LensDisplaySnapshot {
-  const nav = hubExitConfirm
-    ? [
-        { action: ITEM_HUB_EXIT_STAY, label: ITEM_HUB_EXIT_STAY },
-        { action: ITEM_HUB_EXIT_LEAVE, label: ITEM_HUB_EXIT_LEAVE },
-      ]
-    : NAV_ROWS.map((r) => ({ action: r.action, label: r.label }));
-
-  const scrollHint = hubExitConfirm
-    ? 'Choose Stay or Leave'
-    : textScrollOffset > 0
+  const nav = NAV_ROWS.map((r) => ({ action: r.action, label: r.label }));
+  const scrollHint =
+    textScrollOffset > 0
       ? 'Scroll lens text ↑↓ · double-tap clears reply'
       : 'Tap menu (same as G2) · scroll long replies on lens';
 
@@ -128,7 +113,7 @@ export function getGlassesDisplaySnapshot(): LensDisplaySnapshot {
     header: headerLabel,
     main: glassesDisplayTextAtOffset(mainText, useUpgradeLimit, textScrollOffset),
     status: statusLine,
-    exitConfirm: hubExitConfirm,
+    exitConfirm: false,
     nav: [{ action: ITEM_HEADER, label: `> ${headerLabel}` }, ...nav],
     scrollHint,
   };
@@ -162,9 +147,6 @@ export function cycleToolStatusOnGlasses(): void {
 }
 
 function listItemNames(): string[] {
-  if (hubExitConfirm) {
-    return [headerLabel, ITEM_HUB_EXIT_STAY, ITEM_HUB_EXIT_LEAVE];
-  }
   return [headerLabel, ...NAV_ROWS.map((r) => r.label)];
 }
 
@@ -310,26 +292,6 @@ export function requestHubExitWithConfirmation(explicitBridge?: EvenAppBridge | 
   })();
 }
 
-export function beginHubExitConfirmationFlow(): boolean {
-  if (!bridgeRef) return false;
-  if (hubExitConfirm) return true;
-  hubExitConfirm = true;
-  void rebuildGlassesPage();
-  notifyGlassesLens();
-  return true;
-}
-
-function cancelHubExitConfirm(): void {
-  hubExitConfirm = false;
-  void rebuildGlassesPage();
-  notifyGlassesLens();
-}
-
-function confirmHubExitLeave(): void {
-  hubExitConfirm = false;
-  requestHubExitWithConfirmation();
-}
-
 function eqName(a: string, b: string): boolean {
   return a.trim().toLowerCase() === b.trim().toLowerCase();
 }
@@ -338,8 +300,6 @@ function matchRow(trimmed: string): string | undefined {
   const names = listItemNames();
   const exact = names.find((n) => eqName(n, trimmed));
   if (exact) {
-    if (eqName(exact, ITEM_HUB_EXIT_STAY)) return ITEM_HUB_EXIT_STAY;
-    if (eqName(exact, ITEM_HUB_EXIT_LEAVE)) return ITEM_HUB_EXIT_LEAVE;
     const row = NAV_ROWS.find((r) => eqName(r.label, exact));
     if (row) return row.action;
     if (eqName(exact, headerLabel)) return ITEM_HEADER;
@@ -351,8 +311,6 @@ function matchRow(trimmed: string): string | undefined {
   if (tl.startsWith('too')) return ITEM_TOOLS;
   if (tl.startsWith('cle')) return ITEM_CLEAR;
   if (tl.startsWith('ex') || tl.startsWith('<')) return ITEM_EXIT;
-  if (tl.startsWith('sta')) return ITEM_HUB_EXIT_STAY;
-  if (tl.startsWith('lea')) return ITEM_HUB_EXIT_LEAVE;
   return undefined;
 }
 
@@ -412,14 +370,8 @@ function handleTextScrollEvent(et: OsEventTypeList | undefined): boolean {
 function handleListSelection(name: string): void {
   if (name === ITEM_HEADER) return;
 
-  if (hubExitConfirm) {
-    if (eqName(name, ITEM_HUB_EXIT_STAY)) cancelHubExitConfirm();
-    else if (eqName(name, ITEM_HUB_EXIT_LEAVE)) confirmHubExitLeave();
-    return;
-  }
-
   if (eqName(name, ITEM_EXIT)) {
-    beginHubExitConfirmationFlow();
+    requestHubExitWithConfirmation();
     return;
   }
 
@@ -434,12 +386,8 @@ function handleListSelection(name: string): void {
 }
 
 function handleDoubleTap(): void {
-  if (hubExitConfirm) {
-    cancelHubExitConfirm();
-    return;
-  }
   if (mainText.trim() === 'Ask on phone → read here' || !mainText.trim()) {
-    beginHubExitConfirmationFlow();
+    requestHubExitWithConfirmation();
     return;
   }
   resetTextScroll();
