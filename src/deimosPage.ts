@@ -53,13 +53,34 @@ import {
   setGlassesIdleHint,
   setGlassesMainText,
   setGlassesStatus,
+  setLensUpgradeThrottleMs,
 } from './deimosBridge';
 import { renderLensPreview, setLensPreviewHandlers, wireLensPreview } from './lensPreview';
 import { executeSlashInput } from './slash/execute';
-import { SLASH_COMMANDS, slashSuggestions } from './slash/registry';
+import { slashSuggestions } from './slash/registry';
 import { parseSkillSlash } from './skills/bundled';
 import { applyTheme, loadTheme, saveTheme } from './theme';
 import { resetScrollableSelect, wireScrollableSelects } from './scrollableSelect';
+import { askUserViaSheet, wireAskUserSheet } from './askUser';
+import { initMcpUi } from './mcp/mcpUi';
+import { loadLensSettings, saveLensSettings, getLensUpgradeThrottleMs } from './lensSettings';
+import { initGlassesWidgetsStub } from './glassesWidgets';
+import {
+  openHelpSheet,
+  openSkillsSheet,
+  setSkillPickHandler,
+  setSkillsBridge,
+  wireHelpSheet,
+  wireSkillsSheet,
+} from './sheets';
+import { copyToClipboard, importStoreJson, sessionToMarkdown } from './sessionExport';
+import { openImportSheet, setImportHandler, wireImportSheet } from './importSheet';
+import {
+  hasPendingAttach,
+  mergeAttachIntoMessage,
+  openAttachSheet,
+  wireAttachSheet,
+} from './attachContext';
 
 type InitOpts = {
   bridge: EvenAppBridge | null;
@@ -76,6 +97,7 @@ let streaming = false;
 let toolsEnabled = true;
 let skillSystemSuffix = '';
 let tetherMode: 'standalone' | 'tether' = 'standalone';
+let messageFilter = '';
 
 function $(id: string): HTMLElement | null {
   return document.getElementById(id);
@@ -94,6 +116,11 @@ function openSettings(): void {
   const sheet = $('dm-settings-sheet');
   if (!sheet) return;
   syncProviderForm();
+  const pin = $('dm-session-pin') as HTMLTextAreaElement | null;
+  const active = getActiveSession(sessionStore);
+  if (pin) pin.value = active.pinnedContext ?? '';
+  const banner = $('dm-tether-banner');
+  if (banner) banner.hidden = tetherMode !== 'tether';
   sheet.hidden = false;
 }
 
@@ -102,10 +129,50 @@ function closeSettings(): void {
   if (sheet) sheet.hidden = true;
 }
 
+function syncSessionPinFromSettings(): void {
+  const pin = $('dm-session-pin') as HTMLTextAreaElement | null;
+  if (!pin) return;
+  const active = getActiveSession(sessionStore);
+  sessionStore = {
+    ...sessionStore,
+    sessions: sessionStore.sessions.map((s) =>
+      s.id === active.id ? { ...s, pinnedContext: pin.value.trim() || undefined } : s,
+    ),
+  };
+  void saveSessions(bridge, sessionStore);
+}
+
 function wireSettingsSheet(): void {
   $('dm-settings-btn')?.addEventListener('click', () => openSettings());
-  $('dm-settings-close')?.addEventListener('click', () => closeSettings());
-  $('dm-settings-backdrop')?.addEventListener('click', () => closeSettings());
+  $('dm-settings-close')?.addEventListener('click', () => {
+    syncSessionPinFromSettings();
+    closeSettings();
+  });
+  $('dm-settings-backdrop')?.addEventListener('click', () => {
+    syncSessionPinFromSettings();
+    closeSettings();
+  });
+
+  $('dm-export-session')?.addEventListener('click', () => {
+    void (async () => {
+      const active = getActiveSession(sessionStore);
+      const md = sessionToMarkdown(active, sessionStore.sessions);
+      const ok = await copyToClipboard(md);
+      setStatus(ok ? 'chat copied to clipboard' : 'clipboard failed', !ok);
+    })();
+  });
+
+  $('dm-import-session')?.addEventListener('click', () => openImportSheet());
+
+  $('dm-lens-pace')?.addEventListener('change', (e) => {
+    const ms = Number((e.target as HTMLSelectElement).value);
+    void (async () => {
+      const s = { paceMs: ms };
+      await saveLensSettings(bridge, s);
+      setLensUpgradeThrottleMs(getLensUpgradeThrottleMs(s));
+    })();
+  });
+
 }
 
 function syncLensPreview(): void {
@@ -119,7 +186,7 @@ function syncGlassesHeader(state: 'idle' | 'thinking' | 'streaming' | 'error'): 
 function setGlassesPrimaryMode(on: boolean): void {
   document.documentElement.classList.toggle('dm-glasses-primary', on);
   const lens = $('dm-lens-wrap');
-  if (lens) lens.hidden = !on;
+  if (lens) lens.classList.toggle('dm-lens--offline', !on);
   const badge = $('dm-bridge-badge');
   if (badge) badge.hidden = !on;
 }
@@ -132,21 +199,42 @@ function showChatPanel(): void {
   document.documentElement.classList.add('dm-ready');
 }
 
+function formatMsgTime(at?: number): string {
+  const d = new Date(at ?? Date.now());
+  return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+}
+
+function profileSelectLabel(p: ReturnType<typeof getActiveProfile>): string {
+  const model = p.model?.trim() || 'no model';
+  const short = model.length > 16 ? `${model.slice(0, 15)}…` : model;
+  return `${p.name} · ${short}`;
+}
+
 function renderMessages(): void {
   const el = $('dm-messages');
   if (!el) return;
   el.replaceChildren();
   const frag = document.createDocumentFragment();
-  for (const m of messages) {
+  const q = messageFilter.trim().toLowerCase();
+  const visible = q
+    ? messages.filter((m) => m.content.toLowerCase().includes(q))
+    : messages;
+  for (const m of visible) {
     const row = document.createElement('div');
     row.className = `dm-msg dm-msg--${m.role}`;
+    const head = document.createElement('div');
+    head.className = 'dm-msg__head';
     const label = document.createElement('span');
     label.className = 'dm-msg__role';
-    label.textContent = m.role === 'user' ? 'you' : m.role === 'system' ? 'system' : 'deimos';
+    label.textContent = m.role === 'user' ? 'You' : m.role === 'system' ? 'System' : 'Deimos';
+    const time = document.createElement('span');
+    time.className = 'dm-msg__time mono';
+    time.textContent = formatMsgTime(m.at);
+    head.append(label, time);
     const body = document.createElement('pre');
     body.className = 'dm-msg__body';
     body.textContent = m.content;
-    row.append(label, body);
+    row.append(head, body);
     frag.appendChild(row);
   }
   el.appendChild(frag);
@@ -176,7 +264,7 @@ function renderProfileSelect(): void {
   for (const p of profileStore.profiles) {
     const opt = document.createElement('option');
     opt.value = p.id;
-    opt.textContent = p.name;
+    opt.textContent = profileSelectLabel(p);
     el.appendChild(opt);
   }
   el.value = profileStore.activeId;
@@ -270,9 +358,16 @@ async function* streamForUser(
   msgs: ChatMessage[],
   signal: AbortSignal,
 ): AsyncGenerator<StreamEvent> {
-  const systemPrompt = skillSystemSuffix
+  const active = getActiveSession(sessionStore);
+  const pin = active.pinnedContext?.trim();
+  let systemPrompt = skillSystemSuffix
     ? `${skillSystemSuffix}\n\nBe concise for AR glasses.`
     : undefined;
+  if (pin) {
+    systemPrompt = systemPrompt
+      ? `${systemPrompt}\n\nSession notes:\n${pin}`
+      : `Session notes:\n${pin}\n\nBe concise for AR glasses.`;
+  }
 
   if (tetherMode === 'tether') {
     const ts = await loadTetherSettings(bridge);
@@ -286,18 +381,14 @@ async function* streamForUser(
     signal,
     systemPrompt,
     toolsEnabled,
-    onAskUser: (q) =>
-      new Promise((resolve) => {
-        const answer = window.prompt(q);
-        resolve(answer ?? '');
-      }),
+    onAskUser: askUserViaSheet,
   });
 }
 
 async function processStream(userMsgs: ChatMessage[]): Promise<void> {
   abortCtrl = new AbortController();
   let assistant = '';
-  messages.push({ role: 'assistant', content: '' });
+  messages.push({ role: 'assistant', content: '', at: Date.now() });
   const assistantIdx = messages.length - 1;
 
   try {
@@ -347,8 +438,9 @@ async function processStream(userMsgs: ChatMessage[]): Promise<void> {
 }
 
 async function sendChat(userText: string): Promise<void> {
-  const text = userText.trim();
+  let text = userText.trim();
   if (!text || streaming) return;
+  if (hasPendingAttach()) text = mergeAttachIntoMessage(text);
 
   const skill = parseSkillSlash(text);
   let payload = text;
@@ -359,15 +451,31 @@ async function sendChat(userText: string): Promise<void> {
     const slash = executeSlashInput(text);
     if (slash.handled) {
       if (slash.action === 'help') {
-        setStatus(SLASH_COMMANDS.map((c) => `/${c.name} — ${c.description}`).join(' | '));
+        openHelpSheet();
         return;
       }
-      if (slash.action === 'clear') {
+      if (slash.action === 'clear' || slash.action === 'new') {
         newChat();
         return;
       }
-      if (slash.action === 'provider') {
+      if (slash.action === 'provider' || slash.action === 'model') {
         openSettings();
+        return;
+      }
+      if (slash.action === 'mcp') {
+        openSettings();
+        return;
+      }
+      if (slash.action === 'skills') {
+        void openSkillsSheet();
+        return;
+      }
+      if (slash.action === 'export') {
+        void (async () => {
+          const active = getActiveSession(sessionStore);
+          const ok = await copyToClipboard(sessionToMarkdown(active, sessionStore.sessions));
+          setStatus(ok ? 'exported to clipboard' : 'export failed', !ok);
+        })();
         return;
       }
       if (slash.action === 'compact') {
@@ -403,7 +511,7 @@ async function sendChat(userText: string): Promise<void> {
     setStatus('thread long — /compact recommended');
   }
 
-  messages.push({ role: 'user', content: payload });
+  messages.push({ role: 'user', content: payload, at: Date.now() });
   renderMessages();
   await persistAll();
   setStreamingUi(true);
@@ -612,11 +720,24 @@ function wireAdvanced(): void {
 
   $('dm-tether-mode')?.addEventListener('change', (e) => {
     tetherMode = (e.target as HTMLSelectElement).value as 'standalone' | 'tether';
+    const banner = $('dm-tether-banner');
+    if (banner) banner.hidden = tetherMode !== 'tether';
     void (async () => {
       const ts = await loadTetherSettings(bridge);
       ts.mode = tetherMode;
       await saveTetherSettings(bridge, ts);
-      setStatus(`mode: ${tetherMode}`);
+      if (tetherMode === 'tether') {
+        try {
+          const healthUrl = ts.hostUrl.replace(/\/$/, '') + '/health';
+          const h = await fetch(healthUrl);
+          const j = (await h.json()) as { ok?: boolean; mode?: string };
+          setStatus(j.ok ? `tether: ${j.mode ?? 'connected'}` : 'tether: bridge unreachable', !j.ok);
+        } catch {
+          setStatus('tether: bridge unreachable — run npm run tether:bridge', true);
+        }
+      } else {
+        setStatus('mode: standalone');
+      }
     })();
   });
 
@@ -631,6 +752,13 @@ function wireAdvanced(): void {
 
 function wireChatUi(): void {
   const input = $('dm-input') as HTMLTextAreaElement | null;
+
+  $('dm-attach-btn')?.addEventListener('click', () => openAttachSheet());
+
+  $('dm-msg-filter')?.addEventListener('input', (e) => {
+    messageFilter = (e.target as HTMLInputElement).value;
+    renderMessages();
+  });
 
   $('dm-send')?.addEventListener('click', () => {
     const t = input?.value ?? '';
@@ -685,8 +813,39 @@ export async function initDeimosPage(opts: InitOpts): Promise<void> {
   showChatPanel();
   wireProviderUi();
   wireSettingsSheet();
+  await initMcpUi(bridge);
+  const lensSettings = await loadLensSettings(bridge);
+  setLensUpgradeThrottleMs(getLensUpgradeThrottleMs(lensSettings));
+  const paceEl = $('dm-lens-pace') as HTMLSelectElement | null;
+  if (paceEl) paceEl.value = String(lensSettings.paceMs);
+  initGlassesWidgetsStub();
   wireSessions();
   wireRenameSheet();
+  wireAskUserSheet();
+  wireImportSheet();
+  wireAttachSheet(() => {
+    setStatus(hasPendingAttach() ? 'context attached' : 'attach cleared');
+  });
+  setImportHandler((raw) => {
+    const imported = importStoreJson(raw);
+    if (!imported) {
+      setStatus('invalid backup JSON', true);
+      return;
+    }
+    sessionStore = imported;
+    messages = getActiveSession(sessionStore).messages;
+    renderSessionSelect();
+    renderMessages();
+    void saveSessions(bridge, sessionStore);
+    setStatus('sessions imported');
+  });
+  setSkillsBridge(bridge);
+  wireHelpSheet();
+  wireSkillsSheet();
+  setSkillPickHandler((id, body) => {
+    skillSystemSuffix = body;
+    setStatus(`skill: ${id} — send a message to apply`);
+  });
   wireLensPreview();
   setLensPreviewHandlers({
     onNavAction: (action) => {

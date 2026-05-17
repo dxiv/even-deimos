@@ -1,6 +1,6 @@
 {
   "name": "even-deimos",
-  "version": "0.5.0",
+  "version": "0.9.0",
   "private": true,
   "description": "Deimos — Hub app: multi-model chat on phone, streaming HUD on G2.",
   "license": "MIT",

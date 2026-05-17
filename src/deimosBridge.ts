@@ -54,7 +54,11 @@ let textScrollOffset = 0;
 
 let upgradeChain: Promise<void> = Promise.resolve();
 let lastUpgradeAt = 0;
-const UPGRADE_THROTTLE_MS = 200;
+let upgradeThrottleMs = 200;
+
+export function setLensUpgradeThrottleMs(ms: number): void {
+  upgradeThrottleMs = Math.max(0, Math.min(800, ms));
+}
 
 let onListAction: ((action: string) => void) | null = null;
 let onRequestSendFromGlasses: (() => void) | null = null;
@@ -143,7 +147,7 @@ export function applyStreamEventToGlasses(ev: StreamEvent): void {
       notifyGlassesLens();
       break;
     case 'action_required':
-      statusLine = 'approve on phone';
+      statusLine = 'waiting for you';
       notifyGlassesLens();
       break;
     default:
@@ -231,7 +235,8 @@ async function pushMainTextUpgrade(): Promise<void> {
   const b = bridgeRef;
   if (!b || !glassesStarted) return;
   const now = Date.now();
-  if (now - lastUpgradeAt < UPGRADE_THROTTLE_MS) return;
+  const throttle = upgradeThrottleMs <= 0 ? 0 : upgradeThrottleMs;
+  if (throttle > 0 && now - lastUpgradeAt < throttle) return;
   lastUpgradeAt = now;
   useUpgradeLimit = true;
   const content = currentTextContent();

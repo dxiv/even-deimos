@@ -55,21 +55,43 @@
                   <select id="dm-session-select" class="dm-nav-select mono" aria-label="Conversation"></select>
                 </label>
                 <div class="dm-nav-actions">
-                  <button type="button" id="dm-rename-session" class="dm-icon-btn mono" title="Rename chat" aria-label="Rename chat">✎</button>
-                  <button type="button" id="dm-delete-session" class="dm-icon-btn dm-icon-btn--danger mono" title="Delete chat" aria-label="Delete chat">⌫</button>
-                  <button type="button" id="dm-new-session" class="dm-icon-btn mono" title="New chat" aria-label="New chat">+</button>
+                  <button type="button" id="dm-rename-session" class="dm-nav-action mono" title="Rename chat">
+                    <span class="dm-nav-action__icon" aria-hidden="true">✎</span>
+                    <span>Rename</span>
+                  </button>
+                  <button
+                    type="button"
+                    id="dm-delete-session"
+                    class="dm-nav-action dm-nav-action--danger mono"
+                    title="Delete chat"
+                  >
+                    <svg class="dm-nav-action__icon dm-nav-action__icon--svg" viewBox="0 0 24 24" aria-hidden="true">
+                      <path
+                        fill="currentColor"
+                        d="M9 3h6l1 2h4v2H4V5h4l1-2zm1 6h2v9h-2V9zm4 0h2v9h-2V9zM7 9h2v9H7V9zm-1 11h12a2 2 0 0 0 2-2V9H4v9a2 2 0 0 0 2 2z"
+                      />
+                    </svg>
+                    <span>Delete</span>
+                  </button>
+                  <button type="button" id="dm-new-session" class="dm-nav-action mono" title="New chat">
+                    <span class="dm-nav-action__icon dm-nav-action__icon--new" aria-hidden="true">+</span>
+                    <span>New chat</span>
+                  </button>
                 </div>
               </div>
             </header>
 
-            <section id="dm-lens-wrap" class="dm-lens" hidden aria-label="G2 lens preview">
+            <section id="dm-lens-wrap" class="dm-lens" aria-label="G2 lens preview">
               <div class="dm-lens__top">
-                <div class="dm-lens__brand">
+                <p class="dm-lens__title">
                   <span class="dm-lens__mark">Deimos</span>
+                  <span class="dm-lens__sep">|</span>
                   <span class="dm-lens__tag">G2 lens</span>
+                </p>
+                <div class="dm-lens__live">
+                  <span class="dm-lens__live-dot" id="dm-lens-live-dot" aria-hidden="true"></span>
+                  <span id="dm-lens-header" class="dm-lens__header mono">idle</span>
                 </div>
-                <p id="dm-lens-header" class="dm-lens__header mono">idle</p>
-                <button type="button" id="dm-lens-exit" class="dm-lens__exit mono" title="Exit app">Exit</button>
               </div>
               <div class="dm-lens__frame">
                 <nav id="dm-lens-nav" class="dm-lens-nav mono" aria-label="Lens menu"></nav>
@@ -82,19 +104,24 @@
             </section>
 
             <section class="dm-chat">
+              <label class="dm-msg-filter-wrap mono">
+                <span class="sr-only">Filter messages</span>
+                <input id="dm-msg-filter" type="search" class="dm-msg-filter" placeholder="Filter this chat…" />
+              </label>
               <div id="dm-messages" class="dm-messages" role="log" aria-live="polite"></div>
               <div id="dm-slash-menu" class="dm-slash-menu mono" hidden></div>
 
-              <div class="dm-composer">
+              <div class="dm-composer dm-composer--inline">
                 <textarea
                   id="dm-input"
                   class="dm-input mono"
-                  rows="2"
+                  rows="1"
                   placeholder="Message Deimos…  /help"
                   spellcheck="true"
                 ></textarea>
-                <div class="dm-composer__bar">
-                  <button type="button" id="dm-send" class="dm-btn dm-btn--primary mono">Send</button>
+                <div class="dm-composer__actions">
+                  <button type="button" id="dm-attach-btn" class="dm-btn dm-btn--ghost mono" title="Attach context">+</button>
+                  <button type="button" id="dm-send" class="dm-btn dm-btn--send mono">Send</button>
                   <button type="button" id="dm-stop" class="dm-btn dm-btn--ghost mono" hidden>Stop</button>
                 </div>
               </div>
@@ -168,7 +195,26 @@
             </select>
           </label>
 
-          <label class="dm-check"><input type="checkbox" id="dm-tools-toggle" checked /> Web fetch tools</label>
+          <label class="dm-check"><input type="checkbox" id="dm-tools-toggle" checked /> Agent tools (fetch, MCP, ask)</label>
+
+          <div class="dm-settings-block">
+            <p class="dm-settings-block__title">MCP servers</p>
+            <p class="dm-field-hint">HTTP MCP endpoints only. Add host to app.json whitelist before pack.</p>
+            <div id="dm-mcp-list" class="dm-mcp-list"></div>
+            <label class="dm-field dm-field--full">
+              <span>Name</span>
+              <input id="dm-mcp-name" type="text" placeholder="My MCP" />
+            </label>
+            <label class="dm-field dm-field--full">
+              <span>URL</span>
+              <input id="dm-mcp-url" type="url" placeholder="https://host/mcp" />
+            </label>
+            <div class="dm-sheet__actions dm-sheet__actions--start">
+              <button type="button" id="dm-mcp-add" class="dm-btn dm-btn--ghost mono">Add server</button>
+              <button type="button" id="dm-mcp-test" class="dm-btn dm-btn--ghost mono">Test URL</button>
+            </div>
+            <p id="dm-mcp-status" class="dm-field-hint"></p>
+          </div>
 
           <label class="dm-field">
             <span>Agent mode</span>
@@ -182,8 +228,91 @@
             <span>Tether URL</span>
             <input id="dm-tether-host" type="url" value="http://127.0.0.1:8765" />
           </label>
+          <p id="dm-tether-banner" class="dm-field-hint" hidden>Desktop tether: run npm run tether:bridge on your PC.</p>
+
+          <label class="dm-field dm-field--full">
+            <span>Session notes (pinned)</span>
+            <textarea id="dm-session-pin" class="dm-sheet__input dm-sheet__input--area" rows="2" placeholder="Rules or context for this chat…"></textarea>
+          </label>
+
+          <label class="dm-field">
+            <span>Lens read pace</span>
+            <select id="dm-lens-pace" class="dm-select">
+              <option value="0">Fast</option>
+              <option value="120">Normal</option>
+              <option value="280">Slow</option>
+            </select>
+          </label>
+
+          <div class="dm-sheet__actions dm-sheet__actions--start">
+            <button type="button" id="dm-export-session" class="dm-btn dm-btn--ghost mono">Export chat</button>
+            <button type="button" id="dm-import-session" class="dm-btn dm-btn--ghost mono">Import backup</button>
+          </div>
 
           <p class="dm-sheet__foot">Save updates the lens header. G2 menu: Send · New · Setup · Tools · Clear · Exit</p>
+        </div>
+      </div>
+    </div>
+
+    <div id="dm-help-sheet" class="dm-sheet dm-sheet--tall" hidden role="dialog" aria-modal="true">
+      <button type="button" class="dm-sheet__backdrop" id="dm-help-backdrop" aria-label="Close"></button>
+      <div class="dm-sheet__panel mono">
+        <div class="dm-sheet__head">
+          <p class="dm-sheet__title">Slash commands</p>
+          <button type="button" id="dm-help-close" class="dm-icon-btn" aria-label="Close">×</button>
+        </div>
+        <div id="dm-help-body" class="dm-sheet__scroll dm-help-body"></div>
+      </div>
+    </div>
+
+    <div id="dm-skills-sheet" class="dm-sheet dm-sheet--tall" hidden role="dialog" aria-modal="true">
+      <button type="button" class="dm-sheet__backdrop" id="dm-skills-backdrop" aria-label="Close"></button>
+      <div class="dm-sheet__panel mono">
+        <div class="dm-sheet__head">
+          <p class="dm-sheet__title">Skills</p>
+          <button type="button" id="dm-skills-close" class="dm-icon-btn" aria-label="Close">×</button>
+        </div>
+        <div id="dm-skills-list" class="dm-sheet__scroll"></div>
+      </div>
+    </div>
+
+    <div id="dm-import-sheet" class="dm-sheet" hidden role="dialog" aria-modal="true">
+      <button type="button" class="dm-sheet__backdrop" id="dm-import-backdrop" aria-label="Close"></button>
+      <div class="dm-sheet__panel mono">
+        <p class="dm-sheet__title">Import session backup</p>
+        <textarea id="dm-import-input" class="dm-sheet__input dm-sheet__input--area" rows="6" placeholder="Paste JSON…"></textarea>
+        <div class="dm-sheet__actions">
+          <button type="button" id="dm-import-cancel" class="dm-btn dm-btn--ghost">Cancel</button>
+          <button type="button" id="dm-import-submit" class="dm-btn dm-btn--primary">Import</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="dm-attach-sheet" class="dm-sheet" hidden role="dialog" aria-modal="true">
+      <button type="button" class="dm-sheet__backdrop" id="dm-attach-backdrop" aria-label="Close"></button>
+      <div class="dm-sheet__panel mono">
+        <p class="dm-sheet__title">Attach context</p>
+        <p class="dm-sheet__hint">Prepended to your next message (cleared after send).</p>
+        <textarea id="dm-attach-input" class="dm-sheet__input dm-sheet__input--area" rows="5" placeholder="Paste notes, code, or logs…"></textarea>
+        <div class="dm-sheet__actions dm-sheet__actions--start">
+          <button type="button" id="dm-attach-paste" class="dm-btn dm-btn--ghost">Paste clipboard</button>
+        </div>
+        <div class="dm-sheet__actions">
+          <button type="button" id="dm-attach-cancel" class="dm-btn dm-btn--ghost">Clear</button>
+          <button type="button" id="dm-attach-save" class="dm-btn dm-btn--primary">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="dm-ask-sheet" class="dm-sheet" hidden role="dialog" aria-modal="true" aria-labelledby="dm-ask-title">
+      <button type="button" class="dm-sheet__backdrop" id="dm-ask-backdrop" aria-label="Close"></button>
+      <div class="dm-sheet__panel mono">
+        <p id="dm-ask-title" class="dm-sheet__title">Deimos needs your input</p>
+        <p id="dm-ask-question" class="dm-sheet__lead"></p>
+        <textarea id="dm-ask-input" class="dm-sheet__input dm-sheet__input--area" rows="3" placeholder="Your answer…"></textarea>
+        <div class="dm-sheet__actions">
+          <button type="button" id="dm-ask-cancel" class="dm-btn dm-btn--ghost">Cancel</button>
+          <button type="button" id="dm-ask-submit" class="dm-btn dm-btn--primary">Send</button>
         </div>
       </div>
     </div>

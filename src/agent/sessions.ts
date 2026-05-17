@@ -8,6 +8,8 @@ export type ChatSession = {
   title: string;
   /** When true, title is not overwritten by new messages. */
   titleManual?: boolean;
+  /** Prepended to system prompt for this chat. */
+  pinnedContext?: string;
   updatedAt: number;
   messages: ChatMessage[];
 };

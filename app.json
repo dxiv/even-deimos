@@ -2,15 +2,15 @@
   "package_id": "com.dxiv.deimos",
   "edition": "202601",
   "name": "Deimos",
-  "description": "Deimos on G2 Hub — multi-profile AI chat, slash commands, skills, and a lens HUD. API keys stay on-device. Optional desktop tether for full Deimos engine.",
-  "version": "0.5.0",
+  "description": "Deimos on G2 Hub — multi-model agent with tools, MCP, sessions, slash commands, and a lens HUD. Keys on-device. Optional desktop tether.",
+  "version": "0.9.0",
   "min_app_version": "2.0.0",
   "min_sdk_version": "0.0.10",
   "entrypoint": "index.html",
   "permissions": [
     {
       "name": "network",
-      "desc": "HTTPS calls to LLM providers and optional web fetch tools.",
+      "desc": "HTTPS to LLM providers, web fetch, and user-added MCP hosts. Add each MCP origin to whitelist before pack:hub.",
       "whitelist": [
         "https://api.openai.com",
         "https://api.anthropic.com",

@@ -11,6 +11,18 @@ const PORT = Number(process.env.DEIMOS_TETHER_PORT ?? 8765);
 const OPENAI_KEY = process.env.OPENAI_API_KEY ?? '';
 
 const server = http.createServer(async (req, res) => {
+  if (req.method === 'GET' && (req.url === '/health' || req.url === '/v1/health')) {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(
+      JSON.stringify({
+        ok: true,
+        mode: 'openai-proxy',
+        grpc: 'planned — run dxa-deimos gRPC and proxy AgentService.Chat here',
+      }),
+    );
+    return;
+  }
+
   if (req.method === 'POST' && req.url === '/v1/chat') {
     let body = '';
     for await (const chunk of req) body += chunk;

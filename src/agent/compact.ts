@@ -36,9 +36,12 @@ export async function compactMessages(
     if (ev.type === 'done') summary = ev.fullText || summary;
   }
 
-  const recent = messages.filter((m) => m.role !== 'system').slice(-6);
+  const recent = messages.filter((m) => m.role !== 'system').slice(-8);
   return [
-    { role: 'system', content: `Prior context (compacted):\n${summary.trim()}` },
+    {
+      role: 'system',
+      content: `Prior context (compacted at ${new Date().toISOString()}):\n${summary.trim()}`,
+    },
     ...recent,
   ];
 }

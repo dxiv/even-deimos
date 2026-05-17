@@ -6,10 +6,15 @@ export type SlashCommand = {
 };
 
 export const SLASH_COMMANDS: SlashCommand[] = [
-  { name: 'help', description: 'List commands', kind: 'action' },
+  { name: 'help', description: 'Commands & skills', kind: 'action' },
   { name: 'clear', description: 'New chat', kind: 'action' },
+  { name: 'new', description: 'New chat', kind: 'action' },
   { name: 'compact', description: 'Summarize long thread', kind: 'action' },
   { name: 'provider', description: 'Open provider settings', kind: 'action' },
+  { name: 'model', description: 'Open settings (model)', kind: 'action' },
+  { name: 'mcp', description: 'MCP servers', kind: 'action' },
+  { name: 'skills', description: 'Browse skills', kind: 'action' },
+  { name: 'export', description: 'Copy chat as markdown', kind: 'action' },
   {
     name: 'review',
     description: 'Code review mode',
@@ -27,6 +32,24 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     description: 'Debug mode',
     kind: 'prompt',
     promptSuffix: 'Help debug the following. List hypotheses and next steps.',
+  },
+  {
+    name: 'summarize',
+    description: 'Summarize',
+    kind: 'prompt',
+    promptSuffix: 'Summarize in bullet points. Preserve technical terms.',
+  },
+  {
+    name: 'plan',
+    description: 'Implementation plan',
+    kind: 'prompt',
+    promptSuffix: 'Produce a numbered plan with risks and test ideas.',
+  },
+  {
+    name: 'commit',
+    description: 'Commit message',
+    kind: 'prompt',
+    promptSuffix: 'Draft a conventional commit message for the described changes.',
   },
 ];
 

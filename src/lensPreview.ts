@@ -51,20 +51,22 @@ export function renderLensPreview(snap: LensDisplaySnapshot): void {
   if (nav) {
     nav.replaceChildren();
     for (const item of snap.nav) {
+      if (item.action === '__header__') continue;
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'dm-lens-nav__btn mono';
-      btn.textContent = item.label;
+      const label =
+        item.action === 'Send' ? `> ${item.label}` : item.label === '< Exit' ? item.label : item.label;
+      btn.textContent = label;
       btn.dataset.action = item.action;
-      if (item.action === '__header__') {
-        btn.classList.add('dm-lens-nav__btn--header');
-        btn.disabled = true;
-      }
       nav.appendChild(btn);
     }
   }
 
   wrap.classList.toggle('dm-lens--exit', snap.exitConfirm);
+  const live = /live|streaming|thinking/i.test(snap.header);
+  wrap.classList.toggle('dm-lens--live', live);
+  $('dm-lens-live-dot')?.classList.toggle('dm-lens__live-dot--on', live);
 }
 
 export function wireLensPreview(): void {
@@ -76,8 +78,6 @@ export function wireLensPreview(): void {
     if (action === '__header__') return;
     handlers?.onNavAction(action);
   });
-
-  $('dm-lens-exit')?.addEventListener('click', () => handlers?.onExitLens?.());
 
   const content = $('dm-lens-main')?.parentElement;
   content?.addEventListener(
