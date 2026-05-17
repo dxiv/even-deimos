@@ -1,0 +1,4 @@
+node_modules/
+dist/
+deimos.ehpk
+*.local

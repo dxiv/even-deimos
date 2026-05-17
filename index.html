@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en" data-theme="terminal-black">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#050508" />
+    <meta name="description" content="Deimos — multi-model chat on G2 Hub." />
+    <title>Deimos</title>
+    <script>
+      (function () {
+        try {
+          var q = window.location && window.location.search;
+          if (q && (/[?&]shot(?:=|$)/.test(q) || /[?&]screenshot(?:=|$)/.test(q))) {
+            document.documentElement.classList.add('dm-screenshot-mode');
+          }
+        } catch (_) {}
+      })();
+    </script>
+  </head>
+  <body>
+    <div class="dm-aurora" aria-hidden="true">
+      <div class="dm-aurora__base"></div>
+      <div class="dm-aurora__blob dm-aurora__blob--1"></div>
+      <div class="dm-aurora__blob dm-aurora__blob--2"></div>
+    </div>
+
+    <div class="dm-stage">
+      <div class="dm-shell">
+        <main id="dm-hub-root" class="dm-main">
+          <div id="dm-boot-screen" class="dm-boot-screen" role="status" aria-busy="true">
+            <p class="dm-boot-screen__line mono">Loading Deimos</p>
+          </div>
+
+          <section class="dm-home" aria-hidden="true">
+            <h1 class="dm-hero__wordmark">Deimos</h1>
+            <p class="dm-tagline">Chat on phone · read on G2</p>
+          </section>
+
+          <article id="dm-chat-panel" class="dm-app" hidden>
+            <header class="dm-app__header">
+              <div class="dm-app__header-top">
+                <div class="dm-app__brand">
+                  <span class="dm-app__title">Deimos</span>
+                  <span class="dm-app__badge" id="dm-bridge-badge" hidden>G2</span>
+                </div>
+                <button type="button" id="dm-settings-btn" class="dm-icon-btn mono" title="Settings" aria-label="Settings">⚙</button>
+              </div>
+              <div class="dm-app__nav">
+                <label class="dm-nav-field">
+                  <span class="dm-nav-field__label">Profile</span>
+                  <select id="dm-profile-select" class="dm-nav-select mono" aria-label="API profile"></select>
+                </label>
+                <label class="dm-nav-field dm-nav-field--chat">
+                  <span class="dm-nav-field__label">Chat</span>
+                  <select id="dm-session-select" class="dm-nav-select mono" aria-label="Conversation"></select>
+                </label>
+                <div class="dm-nav-actions">
+                  <button type="button" id="dm-rename-session" class="dm-icon-btn mono" title="Rename chat" aria-label="Rename chat">✎</button>
+                  <button type="button" id="dm-delete-session" class="dm-icon-btn dm-icon-btn--danger mono" title="Delete chat" aria-label="Delete chat">⌫</button>
+                  <button type="button" id="dm-new-session" class="dm-icon-btn mono" title="New chat" aria-label="New chat">+</button>
+                </div>
+              </div>
+            </header>
+
+            <section id="dm-lens-wrap" class="dm-lens" hidden aria-label="G2 lens preview">
+              <div class="dm-lens__top">
+                <div class="dm-lens__brand">
+                  <span class="dm-lens__mark">Deimos</span>
+                  <span class="dm-lens__tag">G2 lens</span>
+                </div>
+                <p id="dm-lens-header" class="dm-lens__header mono">idle</p>
+                <button type="button" id="dm-lens-exit" class="dm-lens__exit mono" title="Exit app">Exit</button>
+              </div>
+              <div class="dm-lens__frame">
+                <nav id="dm-lens-nav" class="dm-lens-nav mono" aria-label="Lens menu"></nav>
+                <div class="dm-lens__content">
+                  <pre id="dm-lens-main" class="dm-lens__main mono">Ask on phone → read here</pre>
+                  <p id="dm-lens-status" class="dm-lens__status mono" hidden></p>
+                </div>
+              </div>
+              <p id="dm-lens-hint" class="dm-lens__hint mono">Connect G2 to use the lens</p>
+            </section>
+
+            <section class="dm-chat">
+              <div id="dm-messages" class="dm-messages" role="log" aria-live="polite"></div>
+              <div id="dm-slash-menu" class="dm-slash-menu mono" hidden></div>
+
+              <div class="dm-composer">
+                <textarea
+                  id="dm-input"
+                  class="dm-input mono"
+                  rows="2"
+                  placeholder="Message Deimos…  /help"
+                  spellcheck="true"
+                ></textarea>
+                <div class="dm-composer__bar">
+                  <button type="button" id="dm-send" class="dm-btn dm-btn--primary mono">Send</button>
+                  <button type="button" id="dm-stop" class="dm-btn dm-btn--ghost mono" hidden>Stop</button>
+                </div>
+              </div>
+
+              <p id="dm-status-line" class="dm-status-line mono" role="status"></p>
+            </section>
+
+            <footer class="dm-app__foot">
+              <button type="button" id="dm-hub-exit" class="dm-link-btn mono">Leave app</button>
+            </footer>
+          </article>
+        </main>
+      </div>
+    </div>
+
+    <div
+      id="dm-settings-sheet"
+      class="dm-sheet dm-sheet--tall"
+      hidden
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="dm-settings-title"
+    >
+      <button type="button" class="dm-sheet__backdrop" id="dm-settings-backdrop" aria-label="Close"></button>
+      <div class="dm-sheet__panel mono">
+        <div class="dm-sheet__head">
+          <p id="dm-settings-title" class="dm-sheet__title">Settings</p>
+          <button type="button" id="dm-settings-close" class="dm-icon-btn" aria-label="Close">×</button>
+        </div>
+        <div class="dm-sheet__scroll">
+          <p class="dm-sheet__lead">Profile is in the header. Set provider, model, and API key here.</p>
+
+          <label class="dm-field dm-field--full">
+            <span>Provider</span>
+            <select id="dm-provider-backend" class="dm-select" aria-describedby="dm-provider-hint"></select>
+            <span id="dm-provider-hint" class="dm-field-hint"></span>
+          </label>
+
+          <label class="dm-field dm-field--full">
+            <span>Model</span>
+            <select id="dm-model" class="dm-select"></select>
+          </label>
+
+          <label class="dm-field dm-field--full" id="dm-base-url-wrap" hidden>
+            <span>Base URL</span>
+            <input id="dm-base-url" type="url" />
+          </label>
+
+          <label class="dm-field dm-field--full">
+            <span>API key</span>
+            <input id="dm-api-key" type="password" autocomplete="off" />
+          </label>
+
+          <input id="dm-profile-name" type="hidden" />
+
+          <div class="dm-sheet__actions dm-sheet__actions--start">
+            <button type="button" id="dm-save-provider" class="dm-btn dm-btn--primary mono">Save</button>
+            <button type="button" id="dm-test-provider" class="dm-btn dm-btn--ghost mono">Test</button>
+          </div>
+          <div class="dm-sheet__actions dm-sheet__actions--start">
+            <button type="button" id="dm-add-profile" class="dm-btn dm-btn--ghost mono">Add profile</button>
+            <button type="button" id="dm-delete-profile" class="dm-btn dm-btn--ghost mono">Delete</button>
+          </div>
+
+          <label class="dm-field">
+            <span>Theme</span>
+            <select id="dm-theme" class="dm-select">
+              <option value="terminal-black">Deimos Black</option>
+              <option value="high-contrast">High contrast</option>
+              <option value="dim">Dim</option>
+            </select>
+          </label>
+
+          <label class="dm-check"><input type="checkbox" id="dm-tools-toggle" checked /> Web fetch tools</label>
+
+          <label class="dm-field">
+            <span>Agent mode</span>
+            <select id="dm-tether-mode" class="dm-select">
+              <option value="standalone">Standalone</option>
+              <option value="tether">Desktop tether</option>
+            </select>
+          </label>
+
+          <label class="dm-field dm-field--full" id="dm-tether-host-wrap">
+            <span>Tether URL</span>
+            <input id="dm-tether-host" type="url" value="http://127.0.0.1:8765" />
+          </label>
+
+          <p class="dm-sheet__foot">Save updates the lens header. G2 menu: Send · New · Setup · Tools · Clear · Exit</p>
+        </div>
+      </div>
+    </div>
+
+    <div id="dm-rename-sheet" class="dm-sheet" hidden role="dialog" aria-modal="true" aria-labelledby="dm-rename-title">
+      <button type="button" class="dm-sheet__backdrop" id="dm-rename-backdrop" aria-label="Close"></button>
+      <div class="dm-sheet__panel mono">
+        <p id="dm-rename-title" class="dm-sheet__title">Rename chat</p>
+        <input
+          id="dm-rename-input"
+          class="dm-sheet__input"
+          type="text"
+          maxlength="60"
+          autocomplete="off"
+          placeholder="Chat name"
+        />
+        <p class="dm-sheet__hint">Leave empty to restore automatic titles.</p>
+        <div class="dm-sheet__actions">
+          <button type="button" id="dm-rename-cancel" class="dm-btn dm-btn--ghost">Cancel</button>
+          <button type="button" id="dm-rename-save" class="dm-btn dm-btn--primary">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
